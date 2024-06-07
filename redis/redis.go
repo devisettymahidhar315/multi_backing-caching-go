@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"sync"
 
 	"github.com/go-redis/redis/v8"
 )
@@ -30,8 +29,7 @@ func NewLRUCache() *LRUCache {
 	}
 }
 
-func (c *LRUCache) Put(key, value string, maxLength int, wg1 *sync.WaitGroup) {
-	defer wg1.Done()
+func (c *LRUCache) Put(key, value string, maxLength int) {
 
 	exists, err := c.client.Exists(ctx, key).Result()
 	if err != nil {
@@ -62,8 +60,8 @@ func (c *LRUCache) Put(key, value string, maxLength int, wg1 *sync.WaitGroup) {
 	}
 }
 
-func (c *LRUCache) Get(key string, wg1 *sync.WaitGroup) (string, bool) {
-	defer wg1.Done()
+func (c *LRUCache) Get(key string) (string, bool) {
+
 	value, err := c.client.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return "", false
@@ -77,8 +75,8 @@ func (c *LRUCache) Get(key string, wg1 *sync.WaitGroup) (string, bool) {
 	return value, true
 }
 
-func (c *LRUCache) Print(wg1 *sync.WaitGroup) {
-	defer wg1.Done()
+func (c *LRUCache) Print() {
+
 	fmt.Println("redis")
 	keys, err := c.client.LRange(ctx, "cache", 0, -1).Result()
 	if err != nil {

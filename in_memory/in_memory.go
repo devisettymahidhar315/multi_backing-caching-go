@@ -3,7 +3,6 @@ package in_memory
 import (
 	"container/list"
 	"fmt"
-	"sync"
 )
 
 type CacheNode struct {
@@ -24,8 +23,8 @@ func NewLRUCache() *LRUCache {
 	}
 }
 
-func (c *LRUCache) Get(key string, wg1 *sync.WaitGroup) (string, bool) {
-	defer wg1.Done()
+func (c *LRUCache) Get(key string) (string, bool) {
+
 	if elem, found := c.cache[key]; found {
 		c.list.MoveToFront(elem)
 		return elem.Value.(*CacheNode).value, true
@@ -33,8 +32,7 @@ func (c *LRUCache) Get(key string, wg1 *sync.WaitGroup) (string, bool) {
 	return "", false
 }
 
-func (c *LRUCache) Put(key string, value string, maxLength int, wg1 *sync.WaitGroup) {
-	defer wg1.Done()
+func (c *LRUCache) Put(key string, value string, maxLength int) {
 
 	if elem, found := c.cache[key]; found {
 
@@ -57,9 +55,9 @@ func (c *LRUCache) Put(key string, value string, maxLength int, wg1 *sync.WaitGr
 	c.cache[key] = entry
 }
 
-func (c *LRUCache) Print(wg1 *sync.WaitGroup) {
+func (c *LRUCache) Print() {
 	fmt.Println("in memeory")
-	defer wg1.Done()
+
 	for elem := c.list.Front(); elem != nil; elem = elem.Next() {
 		node := elem.Value.(*CacheNode)
 		fmt.Printf("%s: %s\n", node.key, node.value)

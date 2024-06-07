@@ -3,7 +3,6 @@ package multi_cache
 import (
 	"app/in_memory"
 	"app/redis"
-
 	"sync"
 )
 
@@ -20,29 +19,43 @@ func NewMultiCache() *MultiCache {
 }
 
 func (c *MultiCache) Set(key, value string, length int) {
-
-	var wg1 sync.WaitGroup
-	wg1.Add(2)
-	go c.redisCache.Put(key, value, length, &wg1)
-	go c.inMemoryCache.Put(key, value, length, &wg1)
-	wg1.Wait()
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		c.redisCache.Put(key, value, length)
+	}()
+	go func() {
+		defer wg.Done()
+		c.inMemoryCache.Put(key, value, length)
+	}()
+	wg.Wait()
 }
 
 func (c *MultiCache) Get(key string) {
-
-	var wg1 sync.WaitGroup
-	wg1.Add(2)
-	go c.inMemoryCache.Get(key, &wg1)
-	go c.redisCache.Get(key, &wg1)
-	wg1.Wait()
-
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		c.inMemoryCache.Get(key)
+	}()
+	go func() {
+		defer wg.Done()
+		c.redisCache.Get(key)
+	}()
+	wg.Wait()
 }
 
 func (c *MultiCache) Print() {
-
-	var wg1 sync.WaitGroup
-	wg1.Add(2)
-	go c.redisCache.Print(&wg1)
-	go c.inMemoryCache.Print(&wg1)
-	wg1.Wait()
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		c.redisCache.Print()
+	}()
+	go func() {
+		defer wg.Done()
+		c.inMemoryCache.Print()
+	}()
+	wg.Wait()
 }

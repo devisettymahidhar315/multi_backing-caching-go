@@ -1,0 +1,184 @@
+package redis
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"sync"
+
+	"github.com/go-redis/redis/v8"
+)
+
+var ctx = context.Background()
+
+type LRUCache struct {
+	client *redis.Client
+}
+
+func NewLRUCache() *LRUCache {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+
+	rdb.Del(ctx, "cache")
+
+	return &LRUCache{
+		client: rdb,
+	}
+}
+
+func (c *LRUCache) Put(key, value string, maxLength int, wg1 *sync.WaitGroup) {
+
+	defer wg1.Done()
+	exists, err := c.client.Exists(ctx, key).Result()
+	if err != nil {
+		log.Fatalf("Error checking if key %s exists: %v", key, err)
+	}
+	if exists > 0 {
+		c.client.Del(ctx, key)
+	}
+
+	c.client.LPush(ctx, "cache", key)
+	c.client.Set(ctx, key, value, 0)
+
+	length, err := c.client.LLen(ctx, "cache").Result()
+	if err != nil {
+		log.Fatalf("Error getting cache length: %v", err)
+	}
+	if length > int64(maxLength) {
+		oldest, err := c.client.RPop(ctx, "cache").Result()
+		if err != nil {
+			log.Fatalf("Error popping oldest key: %v", err)
+		}
+		c.client.Del(ctx, oldest)
+	}
+}
+
+func (c *LRUCache) Get(key string, wg1 *sync.WaitGroup) (string, bool) {
+	defer wg1.Done()
+	value, err := c.client.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return "", false
+	} else if err != nil {
+		log.Fatalf("Error getting key %s: %v", key, err)
+	}
+
+	c.client.LRem(ctx, "cache", 0, key)
+	c.client.LPush(ctx, "cache", key)
+
+	return value, true
+}
+
+func (c *LRUCache) Print(wg1 *sync.WaitGroup) {
+	defer wg1.Done()
+	fmt.Println("redis")
+	keys, err := c.client.LRange(ctx, "cache", 0, -1).Result()
+	if err != nil {
+		log.Fatalf("Error getting cache keys: %v", err)
+	}
+
+	for _, key := range keys {
+
+		value, err := c.client.Get(ctx, key).Result()
+		if err != nil {
+			log.Fatalf("Error getting key %s: %v", key, err)
+		}
+		fmt.Printf("%s: %s\n", key, value)
+	}
+}
+
+
+
+
+
+
+package redis
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"sync"
+
+	"github.com/go-redis/redis/v8"
+)
+
+var ctx = context.Background()
+
+type LRUCache struct {
+	client *redis.Client
+}
+
+func NewLRUCache() *LRUCache {
+	opts := &redis.Options{
+		Addr:     "localhost:6379",
+		PoolSize: 10, // Set your desired pool size
+	}
+
+	rdb := redis.NewClient(opts)
+
+	rdb.Del(ctx, "cache")
+
+	return &LRUCache{
+		client: rdb,
+	}
+}
+
+func (c *LRUCache) Put(key, value string, maxLength int, wg1 *sync.WaitGroup) {
+	defer wg1.Done()
+	exists, err := c.client.Exists(ctx, key).Result()
+	if err != nil {
+		log.Fatalf("Error checking if key %s exists: %v", key, err)
+	}
+	if exists > 0 {
+		c.client.Del(ctx, key)
+	}
+
+	c.client.LPush(ctx, "cache", key)
+	c.client.Set(ctx, key, value, 0)
+
+	length, err := c.client.LLen(ctx, "cache").Result()
+	if err != nil {
+		log.Fatalf("Error getting cache length: %v", err)
+	}
+	if length > int64(maxLength) {
+		oldest, err := c.client.RPop(ctx, "cache").Result()
+		if err != nil {
+			log.Fatalf("Error popping oldest key: %v", err)
+		}
+		c.client.Del(ctx, oldest)
+	}
+}
+
+func (c *LRUCache) Get(key string, wg1 *sync.WaitGroup) (string, bool) {
+	defer wg1.Done()
+	value, err := c.client.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return "", false
+	} else if err != nil {
+		log.Fatalf("Error getting key %s: %v", key, err)
+	}
+
+	c.client.LRem(ctx, "cache", 0, key)
+	c.client.LPush(ctx, "cache", key)
+
+	return value, true
+}
+
+func (c *LRUCache) Print(wg1 *sync.WaitGroup) {
+	defer wg1.Done()
+	fmt.Println("redis")
+	keys, err := c.client.LRange(ctx, "cache", 0, -1).Result()
+	if err != nil {
+		log.Fatalf("Error getting cache keys: %v", err)
+	}
+
+	for _, key := range keys {
+
+		value, err := c.client.Get(ctx, key).Result()
+		if err != nil {
+			log.Fatalf("Error getting key %s: %v", key, err)
+		}
+		fmt.Printf("%s: %s\n", key, value)
+	}
+}

@@ -1,0 +1,88 @@
+package main
+
+import (
+	"container/list"
+	"fmt"
+)
+
+type CacheNode struct {
+	key   string
+	value string
+}
+
+type LRUCache struct {
+	capacity int
+	cache    map[string]*list.Element
+	list     *list.List
+}
+
+func NewLRUCache(capacity int) *LRUCache {
+	return &LRUCache{
+		capacity: capacity,
+		cache:    make(map[string]*list.Element),
+		list:     list.New(),
+	}
+}
+
+func (c *LRUCache) Get(key string) (string, bool) {
+	if elem, found := c.cache[key]; found {
+		c.list.MoveToFront(elem)
+		return elem.Value.(*CacheNode).value, true
+	}
+	return "", false
+}
+
+func (c *LRUCache) Put(key string, value string) {
+	if elem, found := c.cache[key]; found {
+
+		elem.Value.(*CacheNode).value = value
+		c.list.MoveToFront(elem)
+		return
+	}
+
+	if c.list.Len() == c.capacity {
+
+		evicted := c.list.Back()
+		if evicted != nil {
+			c.list.Remove(evicted)
+			delete(c.cache, evicted.Value.(*CacheNode).key)
+		}
+	}
+
+	newNode := &CacheNode{key: key, value: value}
+	entry := c.list.PushFront(newNode)
+	c.cache[key] = entry
+}
+
+func (c *LRUCache) PrintCache() {
+	for elem := c.list.Front(); elem != nil; elem = elem.Next() {
+		node := elem.Value.(*CacheNode)
+		fmt.Printf("%s: %s\n", node.key, node.value)
+	}
+}
+
+func main() {
+	cache := NewLRUCache(3)
+
+	cache.Put("key1", "value1")
+	cache.Put("key2", "value2")
+	cache.Put("key3", "value3")
+	cache.Put("key1", "value100")
+
+	cache.PrintCache()
+	fmt.Println("---")
+
+	cache.Get("key1")
+	cache.PrintCache()
+	fmt.Println("---")
+
+	cache.Put("key4", "value4")
+	cache.PrintCache()
+	fmt.Println("---")
+
+	if value, found := cache.Get("key2"); found {
+		fmt.Println("key2 found:", value)
+	} else {
+		fmt.Println("key2 not found")
+	}
+}

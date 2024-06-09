@@ -36,21 +36,19 @@ func (c *LRUCache) Put(key, value string, maxLength int) {
 		log.Fatalf("Error checking if key %s exists: %v", key, err)
 	}
 	if exists > 0 {
-		// Move the key to the front of the list
+
 		c.client.LRem(ctx, "cache", 0, key)
 	}
 
-	// Add the key to the front of the list
 	c.client.LPush(ctx, "cache", key)
-	// Set the value for the key
+
 	c.client.Set(ctx, key, value, 0)
 
-	// Get the current length of the cache list
 	length, err := c.client.LLen(ctx, "cache").Result()
 	if err != nil {
 		log.Fatalf("Error getting cache length: %v", err)
 	}
-	// If the cache length exceeds the max length, remove the oldest key
+
 	if length > int64(maxLength) {
 		oldest, err := c.client.RPop(ctx, "cache").Result()
 		if err != nil {
@@ -90,5 +88,32 @@ func (c *LRUCache) Print() {
 			log.Fatalf("Error getting key %s: %v", key, err)
 		}
 		fmt.Printf("%s: %s\n", key, value)
+	}
+}
+
+func (c *LRUCache) Del(key string) {
+
+	exists, err := c.client.Exists(ctx, key).Result()
+	if err != nil {
+		log.Fatalf("Error checking if key %s exists: %v", key, err)
+	}
+
+	if exists == 0 {
+
+		return
+	}
+
+	if exists > 0 {
+
+		_, err := c.client.LRem(ctx, "cache", 0, key).Result()
+		if err != nil {
+			log.Fatalf("Error removing key %s from cache: %v", key, err)
+		}
+
+		_, err = c.client.Del(ctx, key).Result()
+		if err != nil {
+			log.Fatalf("Error deleting key %s: %v", key, err)
+		}
+
 	}
 }

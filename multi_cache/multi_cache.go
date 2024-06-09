@@ -59,3 +59,20 @@ func (c *MultiCache) Print() {
 	}()
 	wg.Wait()
 }
+
+func (c *MultiCache) Del(key string) {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		c.inMemoryCache.Del(key)
+	}()
+
+	go func() {
+		defer wg.Done()
+		c.redisCache.Del(key)
+	}()
+
+	wg.Wait()
+
+}

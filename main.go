@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-const length = 5
+const length = 3
 
 func main() {
 	cache := multi_cache.NewMultiCache()
@@ -41,11 +41,10 @@ func main() {
 	wg.Wait()
 	cache.Print()
 
-	fmt.Println("Setting key4")
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		cache.Set("key4", "value5", length)
+		cache.Del("key3")
 	}()
 	wg.Wait()
 	cache.Print()

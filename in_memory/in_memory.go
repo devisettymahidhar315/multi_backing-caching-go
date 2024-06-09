@@ -63,3 +63,12 @@ func (c *LRUCache) Print() {
 		fmt.Printf("%s: %s\n", node.key, node.value)
 	}
 }
+
+func (c *LRUCache) Del(key string) {
+	if elem, found := c.cache[key]; found {
+		c.list.Remove(elem)
+		delete(c.cache, elem.Value.(*CacheNode).key)
+	} else {
+		fmt.Println("not found")
+	}
+}

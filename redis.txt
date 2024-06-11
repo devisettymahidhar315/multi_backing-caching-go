@@ -1,105 +1,12 @@
-package redis
+package main
 
 import (
 	"context"
 	"fmt"
 	"log"
-	"sync"
+	"net/http"
 
-	"github.com/go-redis/redis/v8"
-)
-
-var ctx = context.Background()
-
-type LRUCache struct {
-	client *redis.Client
-}
-
-func NewLRUCache() *LRUCache {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
-
-	rdb.Del(ctx, "cache")
-
-	return &LRUCache{
-		client: rdb,
-	}
-}
-
-func (c *LRUCache) Put(key, value string, maxLength int, wg1 *sync.WaitGroup) {
-
-	defer wg1.Done()
-	exists, err := c.client.Exists(ctx, key).Result()
-	if err != nil {
-		log.Fatalf("Error checking if key %s exists: %v", key, err)
-	}
-	if exists > 0 {
-		c.client.Del(ctx, key)
-	}
-
-	c.client.LPush(ctx, "cache", key)
-	c.client.Set(ctx, key, value, 0)
-
-	length, err := c.client.LLen(ctx, "cache").Result()
-	if err != nil {
-		log.Fatalf("Error getting cache length: %v", err)
-	}
-	if length > int64(maxLength) {
-		oldest, err := c.client.RPop(ctx, "cache").Result()
-		if err != nil {
-			log.Fatalf("Error popping oldest key: %v", err)
-		}
-		c.client.Del(ctx, oldest)
-	}
-}
-
-func (c *LRUCache) Get(key string, wg1 *sync.WaitGroup) (string, bool) {
-	defer wg1.Done()
-	value, err := c.client.Get(ctx, key).Result()
-	if err == redis.Nil {
-		return "", false
-	} else if err != nil {
-		log.Fatalf("Error getting key %s: %v", key, err)
-	}
-
-	c.client.LRem(ctx, "cache", 0, key)
-	c.client.LPush(ctx, "cache", key)
-
-	return value, true
-}
-
-func (c *LRUCache) Print(wg1 *sync.WaitGroup) {
-	defer wg1.Done()
-	fmt.Println("redis")
-	keys, err := c.client.LRange(ctx, "cache", 0, -1).Result()
-	if err != nil {
-		log.Fatalf("Error getting cache keys: %v", err)
-	}
-
-	for _, key := range keys {
-
-		value, err := c.client.Get(ctx, key).Result()
-		if err != nil {
-			log.Fatalf("Error getting key %s: %v", key, err)
-		}
-		fmt.Printf("%s: %s\n", key, value)
-	}
-}
-
-
-
-
-
-
-package redis
-
-import (
-	"context"
-	"fmt"
-	"log"
-	"sync"
-
+	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -112,7 +19,7 @@ type LRUCache struct {
 func NewLRUCache() *LRUCache {
 	opts := &redis.Options{
 		Addr:     "localhost:6379",
-		PoolSize: 10, // Set your desired pool size
+		PoolSize: 10,
 	}
 
 	rdb := redis.NewClient(opts)
@@ -124,14 +31,13 @@ func NewLRUCache() *LRUCache {
 	}
 }
 
-func (c *LRUCache) Put(key, value string, maxLength int, wg1 *sync.WaitGroup) {
-	defer wg1.Done()
+func (c *LRUCache) Put(key, value string, maxLength int) {
 	exists, err := c.client.Exists(ctx, key).Result()
 	if err != nil {
 		log.Fatalf("Error checking if key %s exists: %v", key, err)
 	}
 	if exists > 0 {
-		c.client.Del(ctx, key)
+		c.client.LRem(ctx, "cache", 0, key)
 	}
 
 	c.client.LPush(ctx, "cache", key)
@@ -141,6 +47,7 @@ func (c *LRUCache) Put(key, value string, maxLength int, wg1 *sync.WaitGroup) {
 	if err != nil {
 		log.Fatalf("Error getting cache length: %v", err)
 	}
+
 	if length > int64(maxLength) {
 		oldest, err := c.client.RPop(ctx, "cache").Result()
 		if err != nil {
@@ -150,35 +57,95 @@ func (c *LRUCache) Put(key, value string, maxLength int, wg1 *sync.WaitGroup) {
 	}
 }
 
-func (c *LRUCache) Get(key string, wg1 *sync.WaitGroup) (string, bool) {
-	defer wg1.Done()
+func (c *LRUCache) Get(key string) (string, error) {
 	value, err := c.client.Get(ctx, key).Result()
 	if err == redis.Nil {
-		return "", false
+		return "", fmt.Errorf("key not found")
 	} else if err != nil {
-		log.Fatalf("Error getting key %s: %v", key, err)
+		return "", fmt.Errorf("error getting key %s: %v", key, err)
 	}
 
 	c.client.LRem(ctx, "cache", 0, key)
 	c.client.LPush(ctx, "cache", key)
 
-	return value, true
+	return value, nil
 }
 
-func (c *LRUCache) Print(wg1 *sync.WaitGroup) {
-	defer wg1.Done()
-	fmt.Println("redis")
+func (c *LRUCache) Print() map[string]string {
+	co := make(map[string]string)
+
 	keys, err := c.client.LRange(ctx, "cache", 0, -1).Result()
 	if err != nil {
 		log.Fatalf("Error getting cache keys: %v", err)
 	}
-
+	for i, j := 0, len(keys)-1; i < j; i, j = i+1, j-1 {
+		keys[i], keys[j] = keys[j], keys[i]
+	}
+	fmt.Println(keys)
 	for _, key := range keys {
-
+		fmt.Println(key)
 		value, err := c.client.Get(ctx, key).Result()
 		if err != nil {
+
 			log.Fatalf("Error getting key %s: %v", key, err)
 		}
-		fmt.Printf("%s: %s\n", key, value)
+		fmt.Println(key, value)
+		co[key] = value
 	}
+	fmt.Println(co)
+	return co
+}
+
+func (c *LRUCache) Del(key string) {
+	exists, err := c.client.Exists(ctx, key).Result()
+	if err != nil {
+		log.Fatalf("Error checking if key %s exists: %v", key, err)
+	}
+
+	if exists > 0 {
+		if _, err := c.client.LRem(ctx, "cache", 0, key).Result(); err != nil {
+			log.Fatalf("Error removing key %s from cache: %v", key, err)
+		}
+		if _, err := c.client.Del(ctx, key).Result(); err != nil {
+			log.Fatalf("Error deleting key %s: %v", key, err)
+		}
+	}
+}
+
+func main() {
+	cache := NewLRUCache()
+	cache.Put("a", "1", 2)
+	cache.Put("b", "2", 2)
+	cache.Put("c", "3", 2)
+	_, _ = cache.Get("c")
+
+	r := gin.Default()
+	r.GET("/:key", func(c *gin.Context) {
+		key := c.Param("key")
+		value, err := cache.Get(key)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"key": key, "value": value})
+	})
+
+	r.DELETE("/:key", func(c *gin.Context) {
+		key := c.Param("key")
+		cache.Del(key)
+		c.Status(http.StatusOK)
+	})
+
+	r.POST("/:key/:value", func(c *gin.Context) {
+		key := c.Param("key")
+		value := c.Param("value")
+		cache.Put(key, value, 2)
+		c.Status(http.StatusOK)
+	})
+
+	r.GET("/print", func(c *gin.Context) {
+		c.JSON(http.StatusOK, cache.Print())
+	})
+
+	r.Run(":8080")
 }

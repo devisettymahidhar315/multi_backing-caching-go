@@ -143,3 +143,7 @@ func (c *LRUCache) Del(key string) {
 		log.Fatalf("Error deleting key %s: %v", key, err)
 	}
 }
+
+func (c *LRUCache) DEL_ALL() {
+	c.client.FlushAll(ctx)
+}

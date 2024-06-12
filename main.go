@@ -54,6 +54,11 @@ func main() {
 		ctx.JSON(http.StatusOK, cache.Print_in_mem())
 	})
 
+	// Endpoint to delete entire data
+	r.DELETE("/all", func(ctx *gin.Context) {
+		cache.Del_ALL()
+	})
+
 	// Start the Gin server
 	r.Run()
 
